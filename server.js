@@ -15,23 +15,40 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/livekit/token', (req, res) => {
-  const { roomName, username } = req.body;
+app.post('/api/livekit/token', async (req, res) => {
+  try {
+    const { roomName, username } = req.body;
 
-  const at = new AccessToken(
-    process.env.LIVEKIT_API_KEY,
-    process.env.LIVEKIT_API_SECRET,
-    { identity: username }
-  );
+    if (!roomName || !username) {
+      return res.status(400).json({ error: 'roomName and username are required' });
+    }
 
-  at.addGrant({ roomJoin: true, room: roomName });
+    const at = new AccessToken(
+      process.env.LIVEKIT_API_KEY,
+      process.env.LIVEKIT_API_SECRET,
+      { identity: username }
+    );
 
-  res.json({
-    token: at.toJwt(),
-    url: process.env.LIVEKIT_URL,
-  });
+    at.addGrant({
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+
+    const token = await at.toJwt();
+
+    return res.json({
+      token,
+      url: process.env.LIVEKIT_URL,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'failed to generate token' });
+  }
 });
 
 app.listen(PORT, () => {
-  console.log('Server running on port', PORT);
+  console.log(`Server running on port ${PORT}`);
 });
